@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acoustic Chronograph / Акустический хронограф</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #151c31;
+      --line: #2a3558;
+      --text: #e8eefc;
+      --muted: #8b97b8;
+      --accent: #3dd6c6;
+      --warn: #ffb020;
+      --danger: #ff5d6c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2748 0%, var(--bg) 50%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.45rem; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin-bottom: 20px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0e1528;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 15px;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: #06221e;
+      font-weight: 700;
+      border: none;
+    }
+    button.secondary { background: #243056; color: var(--text); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    canvas {
+      width: 100%;
+      height: 140px;
+      background: #0a1020;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+    .readout {
+      font-variant-numeric: tabular-nums;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    .warn { color: var(--warn); font-size: 13px; }
+    .status { margin: 8px 0 0; font-size: 13px; color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+    .row { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Акустический хронограф</h1>
+    <p class="sub">Измерение скорости пули по двум звуковым событиям через микрофон браузера. Acoustic chronograph for airguns.</p>
+
+    <div class="card" style="margin-bottom:14px">
+      <p class="warn"><strong>Безопасность:</strong> стреляйте только в безопасном направлении, не наводите оружие на людей и технику. Микрофон телефона/ноутбука — не мишень. HTTPS или localhost обязателен для доступа к микрофону.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <label>База между датчиками / метками, м</label>
+        <input id="distance" type="number" step="0.01" min="0.05" value="0.50" />
+        <div style="height:10px"></div>
+        <label>Масса пули, г (для энергии)</label>
+        <input id="mass" type="number" step="0.01" min="0" value="0.50" />
+        <div style="height:10px"></div>
+        <label>Порог детекции (0.05–0.9)</label>
+        <input id="threshold" type="number" step="0.01" min="0.05" max="0.9" value="0.25" />
+        <div style="height:10px"></div>
+        <label>Мин. интервал между пиками, мс</label>
+        <input id="minGap" type="number" step="1" min="1" value="2" />
+        <div style="height:10px"></div>
+        <label>Макс. интервал между пиками, мс</label>
+        <input id="maxGap" type="number" step="10" min="10" value="80" />
+        <div style="height:14px"></div>
+        <div class="row">
+          <button id="startBtn">Слушать микрофон</button>
+          <button id="stopBtn" class="secondary" disabled>Стоп</button>
+        </div>
+        <p class="status" id="status">Микрофон выключен</p>
+      </div>
+
+      <div class="card">
+        <canvas id="wave"></canvas>
+        <p class="muted" style="margin-top:8px">Уровень сигнала. Два пика выше порога = один замер.</p>
+        <div class="readout" id="speed">— м/с</div>
+        <div class="muted" id="extra">fps — · Энергия — Дж · Δt — мс</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3 style="margin:0 0 10px">Как пользоваться</h3>
+      <ol class="muted" style="margin:0; padding-left:18px; line-height:1.5">
+        <li>Расставьте две метки на известном расстоянии (например 0.50 м) вдоль траектории пули.</li>
+        <li>Поставьте телефон/ноутбук рядом, чтобы микрофон слышал оба «шлепка»/свиста при пролёте меток (или выстрел + удар в цель на известной дистанции).</li>
+        <li>Включите прослушивание, подстройте порог так, чтобы шум не срабатывал, а выстрел — срабатывал.</li>
+        <li>Скорость = расстояние / время между двумя пиками. Это не замена сертифицированного хронографа.</li>
+      </ol>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+        <strong>История выстрелов</strong>
+        <button id="clearBtn" class="secondary" style="width:auto">Очистить</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>м/с</th><th>fps</th><th>Дж</th><th>Δt мс</th></tr></thead>
+        <tbody id="hist"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('wave');
+    const ctx = canvas.getContext('2d');
+    let audioCtx, analyser, source, stream, raf, running = false;
+    let lastPeak = null;
+    let shotN = 0;
+    const history = [];
+
+    function resize() {
+      canvas.width = canvas.clientWidth * devicePixelRatio;
+      canvas.height = canvas.clientHeight * devicePixelRatio;
+    }
+    resize();
+    addEventListener('resize', resize);
+
+    function energyJ(ms, grams) {
+      const m = grams / 1000;
+      return 0.5 * m * ms * ms;
+    }
+
+    function addShot(v, dt) {
+      const mass = parseFloat($('mass').value) || 0;
+      const e = energyJ(v, mass);
+      shotN += 1;
+      history.unshift({ n: shotN, v, fps: v * 3.28084, e, dt });
+      renderHist();
+      $('speed').textContent = v.toFixed(1) + ' м/с';
+      $('extra').textContent = (v * 3.28084).toFixed(0) + ' fps · Энергия ' + e.toFixed(2) + ' Дж · Δt ' + (dt * 1000).toFixed(2) + ' мс';
+    }
+
+    function renderHist() {
+      $('hist').innerHTML = history.map(h =>
+        `<tr><td>${h.n}</td><td>${h.v.toFixed(1)}</td><td>${h.fps.toFixed(0)}</td><td>${h.e.toFixed(2)}</td><td>${(h.dt*1000).toFixed(2)}</td></tr>`
+      ).join('') || '<tr><td colspan="5" class="muted">пусто</td></tr>';
+    }
+    renderHist();
+
+    function processPeaks(data, now) {
+      let peak = 0;
+      for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+      const thr = parseFloat($('threshold').value) || 0.25;
+      if (peak < thr) return;
+      if (lastPeak && now - lastPeak.t < 0.001) return; // debounce same peak
+      if (!lastPeak) {
+        lastPeak = { t: now, a: peak };
+        return;
+      }
+      const dt = now - lastPeak.t;
+      const minGap = (parseFloat($('minGap').value) || 2) / 1000;
+      const maxGap = (parseFloat($('maxGap').value) || 80) / 1000;
+      lastPeak = { t: now, a: peak };
+      if (dt < minGap || dt > maxGap) return;
+      const d = parseFloat($('distance').value);
+      if (!d || d <= 0) return;
+      const v = d / dt;
+      if (v < 20 || v > 1500) return;
+      addShot(v, dt);
+      lastPeak = null;
+    }
+
+    function draw(data) {
+      const w = canvas.width, h = canvas.height;
+      ctx.fillStyle = '#0a1020';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#3dd6c6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const step = Math.max(1, Math.floor(data.length / w));
+      for (let x = 0, i = 0; x < w; x++, i += step) {
+        const y = (0.5 - data[Math.min(i, data.length-1)] * 0.48) * h;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      const thr = parseFloat($('threshold').value) || 0.25;
+      ctx.strokeStyle = '#ffb02055';
+      ctx.beginPath();
+      ctx.moveTo(0, (0.5 - thr * 0.48) * h);
+      ctx.lineTo(w, (0.5 - thr * 0.48) * h);
+      ctx.moveTo(0, (0.5 + thr * 0.48) * h);
+      ctx.lineTo(w, (0.5 + thr * 0.48) * h);
+      ctx.stroke();
+    }
+
+    async function loop() {
+      if (!running) return;
+      const buf = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(buf);
+      draw(buf);
+      processPeaks(buf, audioCtx.currentTime);
+      raf = requestAnimationFrame(loop);
+    }
+
+    $('startBtn').onclick = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        running = true;
+        lastPeak = null;
+        $('startBtn').disabled = true;
+        $('stopBtn').disabled = false;
+        $('status').textContent = 'Слушаю… стреляйте через базу';
+        loop();
+      } catch (e) {
+        $('status').textContent = 'Нет доступа к микрофону: ' + e.message;
+      }
+    };
+
+    $('stopBtn').onclick = () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      stream && stream.getTracks().forEach(t => t.stop());
+      audioCtx && audioCtx.close();
+      $('startBtn').disabled = false;
+      $('stopBtn').disabled = true;
+      $('status').textContent = 'Микрофон выключен';
+    };
+
+    $('clearBtn').onclick = () => { history.length = 0; shotN = 0; renderHist(); };
+  </script>
+</body>
+</html>

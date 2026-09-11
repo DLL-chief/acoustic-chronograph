@@ -1,236 +1,142 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AcousticChrono</title>
-  <style>
-    :root {
-      --bg: #0b1220; --card: #151d2e; --line: #2a3650; --txt: #e8eefc;
-      --muted: #8b97b8; --acc: #3b82f6; --ok: #22c55e; --bad: #ef4444; --warn: #f59e0b;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--txt); }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 12px; }
-    header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    h1 { font-size: 1.15rem; margin: 0; }
-    nav { display: flex; gap: 6px; background: #0e1628; padding: 4px; border-radius: 10px; }
-    nav button, .btn { border: 0; border-radius: 8px; padding: 8px 12px; background: #243056; color: var(--txt); cursor: pointer; font-weight: 600; }
-    nav button.on { background: var(--acc); color: #fff; }
-    .btn-red { background: #dc2626; color: #fff; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-    label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
-    input { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0c1324; color: var(--txt); }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
-    .muted { color: var(--muted); font-size: 13px; line-height: 1.45; }
-    .warn { color: var(--warn); font-size: 13px; }
-    #wavebox { width: 100%; height: 240px; position: relative; background: #0c1324; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
-    .stats { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    @media (min-width: 700px) { .stats { grid-template-columns: 1fr 1fr 1fr; } }
-    .stat { background: #0c1324; border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center; }
-    .stat b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-    .hidden { display: none !important; }
-    .timer { font-size: 3.2rem; font-weight: 800; text-align: center; color: var(--acc); }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; }
-    .badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #14532d; color: #86efac; }
-    .badge.man { background: #7c2d12; color: #fdba74; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <header>
-      <h1>AcousticChrono</h1>
-      <nav>
-        <button id="tab-set" class="on" onclick="App.view('set')">Настройка</button>
-        <button id="tab-rec" onclick="App.view('rec')">Запись</button>
-        <button id="tab-an" onclick="App.view('an')">Анализ</button>
-      </nav>
-    </header>
-    <section id="view-set">
-      <div class="card">
-        <p class="warn">Телефон не на линии огня. Стреляйте только в безопасную сторону. HTTPS / localhost обязательны для микрофона.</p>
-        <p class="muted">Модель: выстрел A → мишень C, телефон сбоку (проекция Xb, перпендикуляр D). Скорость звука вычитается из пути S1/S2.</p>
-      </div>
-      <div class="grid2">
-        <div class="card">
-          <b>Среда и пуля</b>
-          <label>Температура, °C</label><input id="temp" type="number" value="20" step="0.5" oninput="App.save()">
-          <label>Масса пули, г</label><input id="mass" type="number" value="0.50" step="0.01" oninput="App.save()">
-          <label>Ожидаемая скорость, м/с</label><input id="vexp" type="number" value="160" step="1" oninput="App.save()">
-        </div>
-        <div class="card">
-          <b>Геометрия, м</b>
-          <label>L — дуло → мишень</label><input id="L" type="number" value="10" step="0.01" oninput="App.save()">
-          <label>Xb — дуло → проекция телефона</label><input id="Xb" type="number" value="1" step="0.01" oninput="App.save()">
-          <label>D — перпендикуляр до линии огня</label><input id="D" type="number" value="2" step="0.01" oninput="App.save()">
-        </div>
-      </div>
-      <div class="card">
-        <b>Запись и DSP</b>
-        <div class="grid2">
-          <div><label>Длительность записи, с</label><input id="dur" type="number" value="10" min="3" max="30" oninput="App.save()"></div>
-          <div><label>Масштаб волны</label><input id="amp" type="number" value="6" min="1" max="40" oninput="App.save(); App.draw()"></div>
-          <div><label>Мёртвая зона после выстрела (эхо), мс</label><input id="dead" type="number" value="80" min="20" max="400" oninput="App.save()"></div>
-          <div><label>Окно поиска попадания, ±мс</label><input id="win" type="number" value="120" min="30" max="400" oninput="App.save()"></div>
-        </div>
-      </div>
-    </section>
-    <section id="view-rec" class="hidden">
-      <div class="card" style="text-align:center">
-        <p class="muted">Старт → один выстрел в мишень → анализ.</p>
-        <div class="timer" id="timer">10.0</div>
-        <button class="btn btn-red" id="btnRec" onclick="App.record()">Начать запись</button>
-        <p class="muted" id="recStatus"></p>
-      </div>
-    </section>
-    <section id="view-an" class="hidden">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
-          <div><b>Анализ</b> <span id="sr" class="muted"></span> <span id="mode" class="badge">Авто DSP</span></div>
-          <div><button class="btn" onclick="App.auto()">Авто</button> <button class="btn" onclick="App.manual()">Ручная разметка</button></div>
-        </div>
-        <p class="muted" id="hint">Клик 1 = выстрел, клик 2 = попадание.</p>
-        <div id="wavebox"><canvas id="cv"></canvas></div>
-      </div>
-      <div class="stats">
-        <div class="stat"><span class="muted">Δt измер.</span><b id="odt">—</b></div>
-        <div class="stat"><span class="muted">Скорость Vp</span><b id="ovp">—</b></div>
-        <div class="stat"><span class="muted">Энергия</span><b id="oe">—</b></div>
-      </div>
-      <p class="muted" id="dbg"></p>
-      <div class="card">
-        <div style="display:flex;justify-content:space-between"><b>Серия</b><button class="btn" onclick="App.clearHist()">Очистить</button></div>
-        <table><thead><tr><th>#</th><th>м/с</th><th>Дж</th><th>Δt с</th></tr></thead><tbody id="hist"></tbody></table>
-      </div>
-    </section>
-  </div>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<title>AcousticChrono</title>
+<style>
+:root{--bg:#0b1220;--card:#151d2e;--line:#2a3650;--txt:#e8eefc;--muted:#8b97b8;--acc:#3b82f6}
+*{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+.wrap{max-width:860px;margin:0 auto;padding:12px}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+h1{font-size:1.15rem;margin:0}
+nav{display:flex;gap:6px;background:#0e1628;padding:4px;border-radius:10px}
+nav button,.btn{border:0;border-radius:8px;padding:8px 12px;background:#243056;color:var(--txt);cursor:pointer;font-weight:600}
+nav button.on{background:var(--acc);color:#fff}.btn-red{background:#dc2626;color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+input[type=number],input[type=range]{width:100%}
+input[type=number]{padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:#0c1324;color:var(--txt)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){.grid2,.zoomrow{grid-template-columns:1fr}}
+.muted{color:var(--muted);font-size:13px;line-height:1.45}.warn{color:#f59e0b;font-size:13px}
+#wavebox{width:100%;height:260px;position:relative;background:#0c1324;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stats{display:grid;grid-template-columns:1fr;gap:8px}@media(min-width:700px){.stats{grid-template-columns:1fr 1fr 1fr}}
+.stat{background:#0c1324;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.hidden{display:none!important}.timer{font-size:3.2rem;font-weight:800;text-align:center;color:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+.badge{font-size:11px;padding:3px 8px;border-radius:999px;background:#14532d;color:#86efac}.badge.man{background:#7c2d12;color:#fdba74}
+.zoomrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.scheme{width:100%;height:160px;background:#0c1324;border:1px solid var(--line);border-radius:10px}
+</style></head><body>
+<div class="wrap">
+<header><h1>AcousticChrono</h1>
+<nav>
+<button id="tab-set" class="on" onclick="App.view('set')">Настройка</button>
+<button id="tab-rec" onclick="App.view('rec')">Запись</button>
+<button id="tab-an" onclick="App.view('an')">Анализ</button>
+</nav></header>
+<section id="view-set">
+<div class="card">
+<p class="warn">Телефон не на линии огня. HTTPS / localhost нужны для микрофона.</p>
+<p class="muted">A дуло, C мишень, B телефон, B' проекция на линию выстрела.</p>
+<svg class="scheme" viewBox="0 0 420 160">
+<line x1="30" y1="50" x2="390" y2="50" stroke="#3b82f6" stroke-width="2"/>
+<circle cx="40" cy="50" r="6" fill="#ef4444"/><text x="32" y="38" fill="#ef4444" font-size="13">A</text>
+<circle cx="370" cy="50" r="8" fill="none" stroke="#22c55e" stroke-width="2"/><text x="360" y="38" fill="#22c55e" font-size="13">C</text>
+<text x="190" y="42" fill="#8b97b8" font-size="11">L</text>
+<circle cx="130" cy="50" r="3" fill="#f59e0b"/><text x="118" y="38" fill="#f59e0b" font-size="12">B'</text>
+<line x1="130" y1="50" x2="130" y2="120" stroke="#f59e0b" stroke-dasharray="3 3"/>
+<circle cx="130" cy="120" r="7" fill="#3b82f6"/><text x="142" y="124" fill="#3b82f6" font-size="13">B телефон</text>
+<text x="136" y="88" fill="#f59e0b" font-size="11">D</text>
+<line x1="40" y1="62" x2="130" y2="62" stroke="#8b97b8"/>
+<text x="70" y="76" fill="#8b97b8" font-size="11">Xb</text>
+<line x1="40" y1="50" x2="130" y2="120" stroke="#64748b" stroke-dasharray="2 2"/>
+<text x="48" y="100" fill="#64748b" font-size="11">S1</text>
+<line x1="370" y1="50" x2="130" y2="120" stroke="#64748b" stroke-dasharray="2 2"/>
+<text x="250" y="100" fill="#64748b" font-size="11">S2</text>
+</svg></div>
+<div class="grid2">
+<div class="card"><b>Среда и пуля</b>
+<label>Температура, °C</label><input id="temp" type="number" value="20" step="0.5" oninput="App.save()">
+<label>Масса пули, г</label><input id="mass" type="number" value="0.50" step="0.01" oninput="App.save()">
+<label>Ожидаемая скорость, м/с</label><input id="vexp" type="number" value="160" step="1" oninput="App.save()">
+</div>
+<div class="card"><b>Геометрия, м</b>
+<label>L — дуло → мишень</label><input id="L" type="number" value="10" step="0.01" oninput="App.save()">
+<label>Xb — дуло → проекция телефона</label><input id="Xb" type="number" value="1" step="0.01" oninput="App.save()">
+<label>D — перпендикуляр до линии огня</label><input id="D" type="number" value="2" step="0.01" oninput="App.save()">
+</div></div>
+<div class="card"><b>Запись и DSP</b><div class="grid2">
+<div><label>Длительность записи, с</label><input id="dur" type="number" value="10" min="3" max="30" oninput="App.save()"></div>
+<div><label>Мёртвая зона эха, мс</label><input id="dead" type="number" value="80" min="20" max="400" oninput="App.save()"></div>
+<div><label>Окно поиска попадания, ±мс</label><input id="win" type="number" value="120" min="30" max="400" oninput="App.save()"></div>
+</div></div></section>
+<section id="view-rec" class="hidden">
+<div class="card" style="text-align:center">
+<p class="muted">Старт → один выстрел → анализ.</p>
+<div class="timer" id="timer">10.0</div>
+<button class="btn btn-red" id="btnRec" onclick="App.record()">Начать запись</button>
+<p class="muted" id="recStatus"></p></div></section>
+<section id="view-an" class="hidden">
+<div class="card">
+<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
+<div><b>Анализ</b> <span id="sr" class="muted"></span> <span id="mode" class="badge">Авто DSP</span></div>
+<div><button class="btn" onclick="App.auto()">Авто</button> <button class="btn" onclick="App.manual()">Ручная разметка</button></div></div>
+<p class="muted" id="hint">Нижний кружок маркера можно тащить.</p>
+<div id="wavebox"><canvas id="cv"></canvas></div>
+<div class="zoomrow">
+<div><label>Горизонт. масштаб <span id="zxv">1×</span></label><input id="zoomX" type="range" min="1" max="40" step="0.1" value="1" oninput="App.onZoom()"></div>
+<div><label>Сдвиг окна</label><input id="panX" type="range" min="0" max="1000" value="0" oninput="App.draw()"></div>
+<div><label>Вертик. масштаб <span id="zyv">6</span></label><input id="zoomY" type="range" min="1" max="40" step="0.5" value="6" oninput="App.onZoom()"></div>
+<div style="display:flex;align-items:end;gap:8px">
+<button class="btn" onclick="App.zoomToMarkers()">К маркерам</button>
+<button class="btn" onclick="App.resetZoom()">Весь буфер</button></div></div></div>
+<div class="stats">
+<div class="stat"><span class="muted">Δt измер.</span><b id="odt">—</b></div>
+<div class="stat"><span class="muted">Скорость Vp</span><b id="ovp">—</b></div>
+<div class="stat"><span class="muted">Энергия</span><b id="oe">—</b></div></div>
+<p class="muted" id="dbg"></p>
+<div class="card"><div style="display:flex;justify-content:space-between"><b>Серия</b><button class="btn" onclick="App.clearHist()">Очистить</button></div>
+<table><thead><tr><th>#</th><th>м/с</th><th>Дж</th><th>Δt с</th></tr></thead><tbody id="hist"></tbody></table></div>
+</section></div>
 <script>
-const $ = id => document.getElementById(id);
-const S = { view:'set', audio:{data:null,rate:48000,dur:0}, t1:null, t2:null, mode:'auto', hist:[] };
-const Calc = {
-  c(t){ return 331.3 + 0.606*t; },
-  dist(L,xb,d){ return { s1:Math.hypot(xb,d), s2:Math.hypot(L-xb,d) }; },
-  vp(dt,L,s1,s2,c){ const den=dt-(s2-s1)/c; return den>1e-4? L/den : NaN; },
-  E(v,g){ return (g/1000)*v*v/2; }
-};
-const DSP = {
-  envelope(data,rate,winMs=4){
-    const n=Math.max(8,Math.round(rate*winMs/1000));
-    const out=new Float32Array(data.length); let acc=0;
-    for(let i=0;i<data.length;i++){
-      const x=data[i]; acc+=x*x;
-      if(i>=n){ const y=data[i-n]; acc-=y*y; }
-      out[i]=Math.sqrt(acc/Math.min(i+1,n));
-    }
-    return out;
-  },
-  peakIn(env,from,to){
-    let m=-1, idx=from;
-    const a=Math.max(0,from), b=Math.min(env.length-1,to);
-    for(let i=a;i<=b;i++) if(env[i]>m){ m=env[i]; idx=i; }
-    return {i:idx,a:m};
-  },
-  onsetNear(env,peakI,rate){
-    const look=Math.round(rate*0.012), thr=env[peakI]*0.25;
-    let i=peakI; const start=Math.max(0,peakI-look);
-    while(i>start && env[i]>thr) i--;
-    return i/rate;
-  },
-  find(data,rate,opt){
-    const env=this.envelope(data,rate,3.5);
-    const {L,xb,d,temp,vexp,deadMs,winMs}=opt;
-    const c=Calc.c(temp); const {s1,s2}=Calc.dist(L,xb,d);
-    const first=this.peakIn(env,0,env.length-1);
-    if(first.a<0.008) return null;
-    const t1=this.onsetNear(env,first.i,rate);
-    const dead=Math.max(deadMs/1000,0.03);
-    const tExpect=t1 + L/Math.max(40,vexp) + (s2-s1)/c;
-    const from=Math.round((t1+dead)*rate);
-    const a=Math.max(from, Math.round((tExpect-winMs/1000)*rate));
-    const b=Math.min(env.length-1, Math.max(a+8, Math.round((tExpect+winMs/1000)*rate)));
-    let second=this.peakIn(env,a,b);
-    if(second.a<first.a*0.04) second=this.peakIn(env,from,env.length-1);
-    if(second.i<=first.i) return null;
-    const t2=this.onsetNear(env,second.i,rate);
-    if(t2<=t1+dead) return null;
-    return {t1,t2,tExpect};
-  }
-};
-const App = {
-  load(){ try{ const o=JSON.parse(localStorage.getItem('ac-chrono')||'null'); if(!o) return;
-    ['temp','mass','vexp','L','Xb','D','dur','amp','dead','win'].forEach(k=>{ if(o[k]!=null && $(k)) $(k).value=o[k]; }); }catch(e){} },
-  save(){ const o={}; ['temp','mass','vexp','L','Xb','D','dur','amp','dead','win'].forEach(k=>o[k]=$(k).value);
-    localStorage.setItem('ac-chrono', JSON.stringify(o)); $('timer').textContent=(parseFloat($('dur').value)||10).toFixed(1); },
-  cfg(){ return { temp:+$('temp').value||20, mass:+$('mass').value||0, vexp:+$('vexp').value||160,
-    L:+$('L').value||0, xb:+$('Xb').value||0, d:+$('D').value||0,
-    dur:Math.min(30,Math.max(3,+$('dur').value||10)), amp:+$('amp').value||6,
-    deadMs:+$('dead').value||80, winMs:+$('win').value||120 }; },
-  view(id){ S.view=id; ['set','rec','an'].forEach(v=>{ $('view-'+v).classList.toggle('hidden', v!==id); $('tab-'+v).classList.toggle('on', v===id); });
-    if(id==='an') setTimeout(()=>this.draw(),40); },
-  async record(){
-    const c=this.cfg(); const btn=$('btnRec'); btn.disabled=true; $('recStatus').textContent='Запрос микрофона…';
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-      const ctx=new (window.AudioContext||window.webkitAudioContext)();
-      const rec=new MediaRecorder(stream); const chunks=[];
-      rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
-      rec.onstop=async()=>{ stream.getTracks().forEach(t=>t.stop());
-        const buf=await ctx.decodeAudioData(await new Blob(chunks).arrayBuffer());
-        S.audio.data=buf.getChannelData(0); S.audio.rate=buf.sampleRate; S.audio.dur=buf.duration; ctx.close();
-        btn.disabled=false; $('recStatus').textContent='Готово, '+S.audio.rate+' Гц'; this.view('an'); this.auto(); };
-      rec.start(); let t=c.dur; $('timer').textContent=t.toFixed(1); $('recStatus').textContent='Идёт запись — стреляйте';
-      const iv=setInterval(()=>{ t-=0.1; $('timer').textContent=Math.max(0,t).toFixed(1); if(t<=0){ clearInterval(iv); rec.stop(); } },100);
-    }catch(e){ btn.disabled=false; $('recStatus').textContent='Нет микрофона: '+e.message; }
-  },
-  auto(){
-    if(!S.audio.data){ $('hint').textContent='Сначала запишите звук.'; return; }
-    S.mode='auto'; $('mode').textContent='Авто DSP'; $('mode').className='badge';
-    const peaks=DSP.find(S.audio.data,S.audio.rate,this.cfg());
-    if(!peaks){ this.manual(); $('hint').textContent='Авто не нашло пару. Ручная разметка: выстрел, затем попадание (не эхо).'; return; }
-    S.t1=peaks.t1; S.t2=peaks.t2;
-    $('hint').textContent='Авто: пики в окне ожидаемого полёта. Если взяло эхо — ручная разметка.';
-    this.calc(true); this.draw();
-  },
-  manual(){ S.mode='manual'; S.t1=S.t2=null; $('mode').textContent='Ручной'; $('mode').className='badge man';
-    $('hint').textContent='Клик 1 — выстрел, клик 2 — удар в мишень.'; this.resetOut(); this.draw(); },
-  click(e){ if(S.view!=='an'||S.mode!=='manual'||!S.audio.data) return;
-    const r=$('cv').getBoundingClientRect(); const t=((e.clientX-r.left)/r.width)*S.audio.dur;
-    if(S.t1==null) S.t1=t; else if(S.t2==null){ if(t<=S.t1) return; S.t2=t; this.calc(true); }
-    else { S.t1=t; S.t2=null; this.resetOut(); } this.draw(); },
-  resetOut(){ $('odt').textContent='—'; $('ovp').textContent='—'; $('oe').textContent='—'; $('dbg').textContent=''; },
-  calc(store){
-    const c=this.cfg(); if(S.t1==null||S.t2==null) return;
-    const dt=S.t2-S.t1, cs=Calc.c(c.temp), {s1,s2}=Calc.dist(c.L,c.xb,c.d), vp=Calc.vp(dt,c.L,s1,s2,cs);
-    $('odt').textContent=dt.toFixed(4)+' с'; $('sr').textContent=' · '+S.audio.rate+' Гц';
-    $('dbg').textContent=`c=${cs.toFixed(1)} м/с  S1=${s1.toFixed(2)}  S2=${s2.toFixed(2)}  корр. ${((s2-s1)/cs*1000).toFixed(1)} мс`;
-    if(!isFinite(vp)||vp<20||vp>1200){ $('ovp').textContent='ошибка'; $('oe').textContent='—'; return; }
-    const e=Calc.E(vp,c.mass); $('ovp').textContent=vp.toFixed(1)+' м/с'; $('oe').textContent=e.toFixed(2)+' Дж';
-    if(store){ S.hist.unshift({vp,e,dt}); this.renderHist(); }
-  },
-  renderHist(){ $('hist').innerHTML=S.hist.map((h,i)=>`<tr><td>${S.hist.length-i}</td><td>${h.vp.toFixed(1)}</td><td>${h.e.toFixed(2)}</td><td>${h.dt.toFixed(4)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">пусто</td></tr>'; },
-  clearHist(){ S.hist=[]; this.renderHist(); },
-  draw(){
-    const cv=$('cv'), box=$('wavebox'), w=box.clientWidth, h=box.clientHeight; if(!w||!h) return;
-    cv.width=w; cv.height=h; const g=cv.getContext('2d'); g.fillStyle='#0c1324'; g.fillRect(0,0,w,h);
-    const data=S.audio.data; if(!data){ g.fillStyle='#8b97b8'; g.fillText('Нет записи',16,h/2); return; }
-    const dur=S.audio.dur; g.fillStyle='#334155'; g.font='11px sans-serif';
-    for(let s=0;s<=dur;s++){ const x=s/dur*w; g.fillRect(x,0,1,h); g.fillText(s+'s',x+3,12); }
-    const step=Math.max(1,Math.ceil(data.length/w)), amp=this.cfg().amp, mid=h/2; g.fillStyle='#3b82f6';
-    for(let x=0;x<w;x++){ let mn=1,mx=-1, off=x*step;
-      for(let j=0;j<step&&off+j<data.length;j++){ const v=data[off+j]; if(v<mn)mn=v; if(v>mx)mx=v; }
-      const y1=mid-mx*mid*amp/8, y2=mid-mn*mid*amp/8; g.fillRect(x,y1,1,Math.max(1,y2-y1)); }
-    const line=(t,col,lab)=>{ if(t==null) return; const x=t/dur*w; g.strokeStyle=col; g.lineWidth=2;
-      g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); g.fillStyle=col; g.fillRect(x-11,h-22,22,20);
-      g.fillStyle='#fff'; g.textAlign='center'; g.fillText(lab,x,h-8); g.textAlign='left'; };
-    line(S.t1,'#ef4444','1'); line(S.t2,'#22c55e','2');
-  }
+const $=id=>document.getElementById(id);
+const S={view:'set',audio:{data:null,rate:48000,dur:0},t1:null,t2:null,mode:'auto',hist:[],drag:null,handles:{}};
+const HR=18;
+const Calc={c(t){return 331.3+0.606*t},dist(L,xb,d){return{s1:Math.hypot(xb,d),s2:Math.hypot(L-xb,d)}},vp(dt,L,s1,s2,c){const den=dt-(s2-s1)/c;return den>1e-4?L/den:NaN},E(v,g){return (g/1000)*v*v/2}};
+const DSP={envelope(data,rate,winMs=4){const n=Math.max(8,Math.round(rate*winMs/1000));const out=new Float32Array(data.length);let acc=0;for(let i=0;i<data.length;i++){const x=data[i];acc+=x*x;if(i>=n)acc-=data[i-n]*data[i-n];out[i]=Math.sqrt(acc/Math.min(i+1,n))}return out},
+peakIn(env,from,to){let m=-1,idx=from;const a=Math.max(0,from),b=Math.min(env.length-1,to);for(let i=a;i<=b;i++)if(env[i]>m){m=env[i];idx=i}return{i:idx,a:m}},
+onsetNear(env,peakI,rate){const look=Math.round(rate*0.012),thr=env[peakI]*0.25;let i=peakI;const start=Math.max(0,peakI-look);while(i>start&&env[i]>thr)i--;return i/rate},
+find(data,rate,opt){const env=this.envelope(data,rate,3.5);const {L,xb,d,temp,vexp,deadMs,winMs}=opt;const c=Calc.c(temp),{s1,s2}=Calc.dist(L,xb,d);const first=this.peakIn(env,0,env.length-1);if(first.a<0.008)return null;const t1=this.onsetNear(env,first.i,rate);const dead=Math.max(deadMs/1000,0.03);const tExpect=t1+L/Math.max(40,vexp)+(s2-s1)/c;const from=Math.round((t1+dead)*rate);const a=Math.max(from,Math.round((tExpect-winMs/1000)*rate));const b=Math.min(env.length-1,Math.max(a+8,Math.round((tExpect+winMs/1000)*rate)));let second=this.peakIn(env,a,b);if(second.a<first.a*0.04)second=this.peakIn(env,from,env.length-1);if(second.i<=first.i)return null;const t2=this.onsetNear(env,second.i,rate);if(t2<=t1+dead)return null;return{t1,t2}}};
+const App={
+win(){const dur=S.audio.dur||1,zx=Math.max(1,+$('zoomX').value||1),vis=dur/zx;const maxStart=Math.max(0,dur-vis),start=maxStart*((+$('panX').value||0)/1000);return{start,end:start+vis,vis,zx,zy:+$('zoomY').value||6}},
+tToX(t,w){const v=this.win();return (t-v.start)/v.vis*w},xToT(x,w){const v=this.win();return v.start+(x/w)*v.vis},
+onZoom(){$('zxv').textContent=(+$('zoomX').value).toFixed(1)+'×';$('zyv').textContent=$('zoomY').value;this.draw()},
+zoomToMarkers(){if(S.t1==null||!S.audio.dur)return;const a=Math.min(S.t1,S.t2==null?S.t1:S.t2),b=Math.max(S.t1,S.t2==null?S.t1:S.t2);const pad=Math.max(0.06,(b-a)*0.9||0.16);const vis=Math.min(S.audio.dur,Math.max(0.08,b-a+2*pad));$('zoomX').value=Math.min(40,S.audio.dur/vis);const start=Math.max(0,a-pad),maxStart=Math.max(0,S.audio.dur-vis);$('panX').value=maxStart?Math.round(start/maxStart*1000):0;this.onZoom()},
+resetZoom(){$('zoomX').value=1;$('panX').value=0;this.onZoom()},
+load(){try{const o=JSON.parse(localStorage.getItem('ac-chrono')||'null');if(!o)return;['temp','mass','vexp','L','Xb','D','dur','dead','win'].forEach(k=>{if(o[k]!=null&&$(k))$(k).value=o[k]})}catch(e){}},
+save(){const o={};['temp','mass','vexp','L','Xb','D','dur','dead','win'].forEach(k=>o[k]=$(k).value);localStorage.setItem('ac-chrono',JSON.stringify(o));$('timer').textContent=(parseFloat($('dur').value)||10).toFixed(1)},
+cfg(){return{temp:+$('temp').value||20,mass:+$('mass').value||0,vexp:+$('vexp').value||160,L:+$('L').value||0,xb:+$('Xb').value||0,d:+$('D').value||0,dur:Math.min(30,Math.max(3,+$('dur').value||10)),deadMs:+$('dead').value||80,winMs:+$('win').value||120}},
+view(id){S.view=id;['set','rec','an'].forEach(v=>{$('view-'+v).classList.toggle('hidden',v!==id);$('tab-'+v).classList.toggle('on',v===id)});if(id==='an')setTimeout(()=>this.draw(),40)},
+async record(){const c=this.cfg(),btn=$('btnRec');btn.disabled=true;$('recStatus').textContent='Запрос микрофона…';try{const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});const ctx=new (window.AudioContext||window.webkitAudioContext)();const rec=new MediaRecorder(stream),chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const buf=await ctx.decodeAudioData(await new Blob(chunks).arrayBuffer());S.audio.data=buf.getChannelData(0);S.audio.rate=buf.sampleRate;S.audio.dur=buf.duration;ctx.close();btn.disabled=false;$('recStatus').textContent='Готово, '+S.audio.rate+' Гц';this.view('an');this.auto()};rec.start();let t=c.dur;$('timer').textContent=t.toFixed(1);$('recStatus').textContent='Идёт запись — стреляйте';const iv=setInterval(()=>{t-=0.1;$('timer').textContent=Math.max(0,t).toFixed(1);if(t<=0){clearInterval(iv);rec.stop()}},100)}catch(e){btn.disabled=false;$('recStatus').textContent='Нет микрофона: '+e.message}},
+auto(){if(!S.audio.data){$('hint').textContent='Сначала запишите звук.';return}S.mode='auto';$('mode').textContent='Авто DSP';$('mode').className='badge';const peaks=DSP.find(S.audio.data,S.audio.rate,this.cfg());if(!peaks){this.manual();$('hint').textContent='Авто не нашло пару.';return}S.t1=peaks.t1;S.t2=peaks.t2;$('hint').textContent='Авто. «К маркерам» приблизит. В ручном тащи кружки.';this.calc(true);this.zoomToMarkers()},
+manual(){S.mode='manual';$('mode').textContent='Ручной';$('mode').className='badge man';$('hint').textContent='Клик ставит маркер. Кружок внизу линии — перетащить.';this.draw()},
+hit(x,y){for(const k of ['1','2']){const h=S.handles[k];if(!h)continue;const dx=x-h.x,dy=y-h.y;if(dx*dx+dy*dy<=HR*HR)return k}return null},
+down(e){if(S.view!=='an'||!S.audio.data)return;const r=$('cv').getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,t=this.xToT(x,r.width);if(S.mode==='manual'){const hit=this.hit(x,y);if(hit){S.drag=hit;$('cv').setPointerCapture(e.pointerId);return}if(S.t1==null)S.t1=t;else if(S.t2==null){if(t<=S.t1)return;S.t2=t;this.calc(false)}else{S.t1=t;S.t2=null;this.resetOut()}this.draw()}},
+move(e){if(!S.drag)return;const r=$('cv').getBoundingClientRect();let t=Math.max(0,Math.min(S.audio.dur,this.xToT(e.clientX-r.left,r.width)));if(S.drag==='1'){S.t1=t;if(S.t2!=null&&S.t1>=S.t2)S.t1=S.t2-0.0005}else{S.t2=t;if(S.t1!=null&&S.t2<=S.t1)S.t2=S.t1+0.0005}if(S.t1!=null&&S.t2!=null)this.calc(false);this.draw()},
+up(){S.drag=null},resetOut(){$('odt').textContent='—';$('ovp').textContent='—';$('oe').textContent='—';$('dbg').textContent=''},
+calc(store){const c=this.cfg();if(S.t1==null||S.t2==null)return;const dt=S.t2-S.t1,cs=Calc.c(c.temp),{s1,s2}=Calc.dist(c.L,c.xb,c.d),vp=Calc.vp(dt,c.L,s1,s2,cs);$('odt').textContent=dt.toFixed(4)+' с';$('sr').textContent=' · '+S.audio.rate+' Гц';$('dbg').textContent=`c=${cs.toFixed(1)} м/с  S1=${s1.toFixed(2)}  S2=${s2.toFixed(2)}  корр. ${((s2-s1)/cs*1000).toFixed(1)} мс`;if(!isFinite(vp)||vp<20||vp>1200){$('ovp').textContent='ошибка';$('oe').textContent='—';return}const e=Calc.E(vp,c.mass);$('ovp').textContent=vp.toFixed(1)+' м/с';$('oe').textContent=e.toFixed(2)+' Дж';if(store){S.hist.unshift({vp,e,dt});this.renderHist()}},
+renderHist(){$('hist').innerHTML=S.hist.map((h,i)=>`<tr><td>${S.hist.length-i}</td><td>${h.vp.toFixed(1)}</td><td>${h.e.toFixed(2)}</td><td>${h.dt.toFixed(4)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">пусто</td></tr>'},
+clearHist(){S.hist=[];this.renderHist()},
+draw(){const cv=$('cv'),box=$('wavebox'),w=box.clientWidth,h=box.clientHeight;if(!w||!h)return;cv.width=w;cv.height=h;const g=cv.getContext('2d');g.fillStyle='#0c1324';g.fillRect(0,0,w,h);const data=S.audio.data;S.handles={};if(!data){g.fillStyle='#8b97b8';g.fillText('Нет записи',16,h/2);return}const v=this.win();g.fillStyle='#334155';g.font='11px sans-serif';const stepT=v.vis>8?2:v.vis>3?1:v.vis>1?0.5:0.1;const t0=Math.ceil(v.start/stepT)*stepT;for(let t=t0;t<=v.end+1e-9;t+=stepT){const x=this.tToX(t,w);g.fillRect(x,0,1,h);g.fillText(t.toFixed(stepT<1?2:0)+'s',x+3,12)}const i0=Math.max(0,Math.floor(v.start/S.audio.dur*data.length));const i1=Math.min(data.length,Math.ceil(v.end/S.audio.dur*data.length));const span=Math.max(1,i1-i0),step=Math.max(1,Math.ceil(span/w)),mid=h/2;g.fillStyle='#3b82f6';for(let x=0;x<w;x++){let mn=1,mx=-1,off=i0+Math.floor(x/w*span);for(let j=0;j<step&&off+j<data.length;j++){const val=data[off+j];if(val<mn)mn=val;if(val>mx)mx=val}const y1=mid-mx*mid*v.zy/8,y2=mid-mn*mid*v.zy/8;g.fillRect(x,y1,1,Math.max(1,y2-y1))}const line=(t,col,lab)=>{if(t==null)return;const x=this.tToX(t,w);if(x<-20||x>w+20)return;g.strokeStyle=col;g.lineWidth=2;g.beginPath();g.moveTo(x,0);g.lineTo(x,h-28);g.stroke();g.beginPath();g.arc(x,h-18,12,0,Math.PI*2);g.fillStyle=col;g.fill();g.fillStyle='#fff';g.font='bold 12px sans-serif';g.textAlign='center';g.fillText(lab,x,h-14);g.textAlign='left';S.handles[lab]={x,y:h-18}};line(S.t1,'#ef4444','1');line(S.t2,'#22c55e','2')}
 };
 window.addEventListener('resize',()=>App.draw());
-$('cv').addEventListener('pointerdown',e=>App.click(e));
-App.load(); App.save(); App.renderHist();
-</script>
-</body>
-</html>
+const cvEl=$('cv');
+cvEl.addEventListener('pointerdown',e=>App.down(e));
+cvEl.addEventListener('pointermove',e=>App.move(e));
+cvEl.addEventListener('pointerup',()=>App.up());
+cvEl.addEventListener('pointercancel',()=>App.up());
+App.load();App.save();App.renderHist();
+</script></body></html>
